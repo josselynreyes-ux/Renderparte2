@@ -20,20 +20,40 @@ app.get("/health", (req, res) => {
 io.on("connection", (socket) => {
   console.log("Usuario conectado:", socket.id);
 
-  socket.on("registrarUsuario", (nombre) => {
+  socket.on("registrarUsuario", (data) => {
+    // data ahora contiene { nombre, sala }
+    socket.join(data.sala);
     const usuario = {
       id: socket.id,
-      nombre: nombre || "Anónimo"
+      nombre: data.nombre || "Anónimo",
+      sala: data.sala
     };
 
     usuarios.set(socket.id, usuario);
 
     io.emit("usuariosActualizados", Array.from(usuarios.values()));
-    io.emit("mensajeSistema", `${usuario.nombre} se conectó`);
+    // mensaje de sistema solo a la sala donde se unió
+    io.to(data.sala).emit("mensajeSistema", `${usuario.nombre} se unió a ${data.sala}`);
+  });
+
+  socket.on("cambiarSala", (nuevaSala) => {
+    const usuario = usuarios.get(socket.id);
+    if (usuario) {
+      socket.leave(usuario.sala);
+      socket.join(nuevaSala);
+      
+      io.to(usuario.sala).emit("mensajeSistema", `${usuario.nombre} abandonó la sala`);
+      usuario.sala = nuevaSala;
+      usuarios.set(socket.id, usuario);
+      
+      io.to(nuevaSala).emit("mensajeSistema", `${usuario.nombre} se unió a la sala`);
+      io.emit("usuariosActualizados", Array.from(usuarios.values()));
+    }
   });
 
   socket.on("mensajeGlobal", (data) => {
-    io.emit("mensajeGlobal", {
+    // enviamos el mensaje solo a la sala del usuario
+    io.to(data.sala).emit("mensajeGlobal", {
       usuario: data.usuario,
       mensaje: data.mensaje,
       hora: new Date().toLocaleTimeString()
@@ -50,14 +70,12 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     const usuario = usuarios.get(socket.id);
-    usuarios.delete(socket.id);
-
-    io.emit("usuariosActualizados", Array.from(usuarios.values()));
-
     if (usuario) {
-      io.emit("mensajeSistema", `${usuario.nombre} se desconectó`);
+      usuarios.delete(socket.id);
+      io.emit("usuariosActualizados", Array.from(usuarios.values()));
+      // notificar salida a los de su sala
+      io.to(usuario.sala).emit("mensajeSistema", `${usuario.nombre} se desconectó`);
     }
-
     console.log("Usuario desconectado:", socket.id);
   });
 });

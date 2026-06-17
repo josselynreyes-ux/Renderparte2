@@ -1,3 +1,6 @@
+WebSockets + Socket.IO + Render
+6. Código del frontend
+Copiar
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -26,6 +29,13 @@
     <div class="card" id="registro">
       <h2>Registro</h2>
       <input id="nombre" placeholder="Escribe tu nombre" />
+    
+    <select id="salaInicial">
+        <option value="general">General</option>
+        <option value="soporte">Soporte</option>
+        <option value="peliculas">peliculas</option>
+    </select>
+
       <button onclick="registrar()">Entrar al chat</button>
     </div>
 
@@ -36,6 +46,14 @@
       </div>
 
       <div class="card">
+
+        <h3>Sala activa: <span id="nombreSalaActiva"></span></h3>
+        <select onchange="cambiarSala(this.value)">
+        <option value="general">General</option>
+        <option value="soporte">Soporte</option>
+        <option value="peliculas">Peliculas</option>
+        </select>
+
         <h2>Mensajes</h2>
         <div id="mensajes"></div>
 
@@ -49,12 +67,17 @@
         <button onclick="enviarPrivado()">Enviar privado</button>
       </div>
     </div>
+
+  
+  </div>
+
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     let miNombre = "";
+    let salaActual = "";
 
     function registrar() {
       miNombre = document.getElementById("nombre").value.trim();
@@ -63,9 +86,11 @@
         return;
       }
 
-      socket.emit("registrarUsuario", miNombre);
-      document.getElementById("registro").style.display = "none";
-      document.getElementById("chat").style.display = "grid";
+    salaActual = document.getElementById("salaInicial").value;
+    socket.emit("registrarUsuario", { nombre: miNombre, sala: salaActual });
+    document.getElementById("nombreSalaActiva").innerText = salaActual;
+    document.getElementById("registro").style.display = "none";
+    document.getElementById("chat").style.display = "grid";
     }
 
     function enviarGlobal() {
@@ -136,6 +161,30 @@
       document.getElementById("mensajes").appendChild(div);
       div.scrollIntoView();
     }
+
+    function enviarGlobal() {
+      const input = document.getElementById("mensaje");
+      const mensaje = input.value.trim();
+      if (!mensaje) return;
+
+      //sala actual donde se envian los mensajes
+      socket.emit("mensajeGlobal", {
+        usuario: miNombre,
+        mensaje: mensaje,
+        sala: salaActual
+      });
+
+      input.value = "";
+    }
+
+    function cambiarSala(nuevaSala) {
+    socket.emit("cambiarSala", nuevaSala);
+    salaActual = nuevaSala;
+    document.getElementById("nombreSalaActiva").innerText = salaActual;
+    document.getElementById("mensajes").innerHTML = "";
+    }
   </script>
 </body>
 </html>
+← Anterior
+Siguiente →
